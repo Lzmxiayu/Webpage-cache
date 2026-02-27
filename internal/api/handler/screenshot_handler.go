@@ -26,16 +26,19 @@ func (h *ScreenshotHandler) CreateTask(c *gin.Context) {
 		return
 	}
 
-	task, _ := h.service.CreateTask(req.URL)
+	task, err := h.service.CreateTask(req.URL)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusAccepted, gin.H{
 		"task_id": task.ID,
 		"status":  task.Status,
 	})
 }
 
 func (h *ScreenshotHandler) GetTask(c *gin.Context) {
-
 	id := c.Param("id")
 
 	task, ok := h.service.GetTask(id)
@@ -46,3 +49,4 @@ func (h *ScreenshotHandler) GetTask(c *gin.Context) {
 
 	c.JSON(http.StatusOK, task)
 }
+

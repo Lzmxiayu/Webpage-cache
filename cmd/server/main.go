@@ -2,34 +2,36 @@ package main
 
 import (
 	"log"
+	"time"
 	"webpage-cache/internal/api"
 	"webpage-cache/internal/api/handler"
-	"webpage-cache/internal/model"
+	"webpage-cache/internal/browser"
+	"webpage-cache/internal/queue"
 	"webpage-cache/internal/repository"
 	"webpage-cache/internal/service"
+	"webpage-cache/internal/storage"
 	"webpage-cache/internal/worker"
 )
 
 func main() {
-
-	// 创建任务通道
-	jobChan := make(chan model.Task, 100)
-
 	repo := repository.NewMemoryTaskRepository()
+	q := queue.NewMemoryQueue(100)
 
-	// 启动 worker pool
-	pool := worker.NewPool(5, jobChan, repo)
+	screenshotter := browser.NewChromedpScreenshotter(30 * time.Second)
+	defer screenshotter.Close()
+
+	localStorage := storage.NewLocalStorage("./data/screenshots", "/static/screenshots")
+
+	pool := worker.NewPool(5, q, repo, screenshotter, localStorage)
 	pool.Start()
 
-	// 初始化 service
-	svc := service.NewScreenshotService(jobChan, repo)
-
-	// 初始化 handler
+	svc := service.NewScreenshotService(q, repo)
 	h := handler.NewScreenshotHandler(svc)
-
-	// 启动 HTTP 服务
 	r := api.NewRouter(h)
 
 	log.Println("Server started at :8080")
-	r.Run(":8080")
+	if err := r.Run(":8080"); err != nil {
+		log.Fatal(err)
+	}
 }
+

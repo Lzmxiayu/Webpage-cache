@@ -9,7 +9,9 @@ import (
 func NewRouter(h *handler.ScreenshotHandler) *gin.Engine {
 	r := gin.Default()
 
+	r.Static("/static/screenshots", "./data/screenshots")
 	r.POST("/screenshot", h.CreateTask)
 	r.GET("/screenshot/:id", h.GetTask)
 	return r
 }
+
