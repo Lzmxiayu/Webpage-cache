@@ -1,8 +1,11 @@
 package queue
 
-import "webpage-cache/internal/model"
+import (
+	"context"
+	"webpage-cache/internal/model"
+)
 
 type Queue interface {
-	Push(task model.Task) error
-	Pop() (model.Task, error)
+	Push(ctx context.Context, task model.Task) error
+	Pop(ctx context.Context) (model.Task, error)
 }

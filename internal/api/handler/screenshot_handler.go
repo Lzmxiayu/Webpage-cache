@@ -53,7 +53,7 @@ func (h *ScreenshotHandler) CreateTask(c *gin.Context) {
 		return
 	}
 
-	task, err := h.service.CreateTask(req.URL)
+	task, err := h.service.CreateTask(c.Request.Context(), req.URL)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(response.CodeInternalError, "failed to create task"))
 		return

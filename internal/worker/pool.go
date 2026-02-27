@@ -2,7 +2,9 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"log"
+	"sync"
 	"time"
 	"webpage-cache/internal/browser"
 	"webpage-cache/internal/model"
@@ -12,43 +14,58 @@ import (
 )
 
 type Pool struct {
-	workerCount   int
-	maxRetryCount int
-	queue         queue.Queue
-	repo          repository.TaskRepository
-	screenshotter browser.Screenshotter
-	storage       storage.Storage
+	workerCount     int
+	maxRetryCount   int
+	taskExecTimeout time.Duration
+	queue           queue.Queue
+	repo            repository.TaskRepository
+	screenshotter   browser.Screenshotter
+	storage         storage.Storage
+	wg              sync.WaitGroup
 }
 
 func NewPool(
 	workerCount int,
 	maxRetryCount int,
+	taskExecTimeout time.Duration,
 	q queue.Queue,
 	repo repository.TaskRepository,
 	screenshotter browser.Screenshotter,
 	storage storage.Storage,
 ) *Pool {
 	return &Pool{
-		workerCount:   workerCount,
-		maxRetryCount: maxRetryCount,
-		queue:         q,
-		repo:          repo,
-		screenshotter: screenshotter,
-		storage:       storage,
+		workerCount:     workerCount,
+		maxRetryCount:   maxRetryCount,
+		taskExecTimeout: taskExecTimeout,
+		queue:           q,
+		repo:            repo,
+		screenshotter:   screenshotter,
+		storage:         storage,
 	}
 }
 
-func (p *Pool) Start() {
+func (p *Pool) Start(ctx context.Context) {
 	for i := 0; i < p.workerCount; i++ {
-		go p.worker(i)
+		p.wg.Add(1)
+		go p.worker(ctx, i)
 	}
 }
 
-func (p *Pool) worker(id int) {
+func (p *Pool) Wait() {
+	p.wg.Wait()
+}
+
+func (p *Pool) worker(ctx context.Context, id int) {
+	defer p.wg.Done()
+
 	for {
-		task, err := p.queue.Pop()
+		task, err := p.queue.Pop(ctx)
 		if err != nil {
-			log.Println("queue error:", err)
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
+				log.Printf("[Worker %d] stopped\n", id)
+				return
+			}
+			log.Printf("[Worker %d] queue error: %v\n", id, err)
 			continue
 		}
 
@@ -61,17 +78,26 @@ func (p *Pool) worker(id int) {
 
 		log.Printf("[Worker %d] processing %s (retry=%d)\n", id, task.ID, task.RetryCount)
 
-		img, err := p.screenshotter.Capture(context.Background(), task.URL)
+		taskCtx := ctx
+		cancel := func() {}
+		if p.taskExecTimeout > 0 {
+			taskCtx, cancel = context.WithTimeout(ctx, p.taskExecTimeout)
+		}
+
+		img, err := p.screenshotter.Capture(taskCtx, task.URL)
 		if err != nil {
-			p.handleFailure(id, &task, "capture screenshot failed: "+err.Error())
+			cancel()
+			p.handleFailure(ctx, id, &task, "capture screenshot failed: "+err.Error())
 			continue
 		}
 
-		resultURL, err := p.storage.Save(context.Background(), task.ID, img)
+		resultURL, err := p.storage.Save(taskCtx, task.ID, img)
 		if err != nil {
-			p.handleFailure(id, &task, "save screenshot failed: "+err.Error())
+			cancel()
+			p.handleFailure(ctx, id, &task, "save screenshot failed: "+err.Error())
 			continue
 		}
+		cancel()
 
 		task.Status = model.StatusDone
 		task.ResultURL = resultURL
@@ -86,7 +112,7 @@ func (p *Pool) worker(id int) {
 	}
 }
 
-func (p *Pool) handleFailure(workerID int, task *model.Task, errMsg string) {
+func (p *Pool) handleFailure(ctx context.Context, workerID int, task *model.Task, errMsg string) {
 	if task.RetryCount < p.maxRetryCount {
 		task.RetryCount++
 		task.Status = model.StatusPending
@@ -97,7 +123,7 @@ func (p *Pool) handleFailure(workerID int, task *model.Task, errMsg string) {
 			log.Printf("[Worker %d] update retry status failed for %s: %v\n", workerID, task.ID, err)
 			return
 		}
-		if err := p.queue.Push(*task); err != nil {
+		if err := p.queue.Push(ctx, *task); err != nil {
 			log.Printf("[Worker %d] requeue failed for %s: %v\n", workerID, task.ID, err)
 			p.markFailed(workerID, task, "requeue failed: "+err.Error())
 			return

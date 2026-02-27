@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"time"
 	"webpage-cache/internal/model"
 	"webpage-cache/internal/queue"
@@ -21,7 +22,7 @@ func NewScreenshotService(q queue.Queue, repo repository.TaskRepository) *Screen
 	}
 }
 
-func (s *ScreenshotService) CreateTask(url string) (model.Task, error) {
+func (s *ScreenshotService) CreateTask(ctx context.Context, url string) (model.Task, error) {
 	task := model.Task{
 		ID:        uuid.NewString(),
 		URL:       url,
@@ -34,7 +35,7 @@ func (s *ScreenshotService) CreateTask(url string) (model.Task, error) {
 		return model.Task{}, err
 	}
 
-	if err := s.queue.Push(task); err != nil {
+	if err := s.queue.Push(ctx, task); err != nil {
 		task.Status = model.StatusFailed
 		task.ErrorMsg = "enqueue failed: " + err.Error()
 		task.UpdatedAt = time.Now()
@@ -48,4 +49,3 @@ func (s *ScreenshotService) CreateTask(url string) (model.Task, error) {
 func (s *ScreenshotService) GetTask(id string) (model.Task, bool) {
 	return s.repo.GetByID(id)
 }
-

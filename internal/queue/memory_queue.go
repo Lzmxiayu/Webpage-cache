@@ -1,6 +1,7 @@
 package queue
 
 import (
+	"context"
 	"errors"
 	"webpage-cache/internal/model"
 )
@@ -15,15 +16,23 @@ func NewMemoryQueue(size int) *MemoryQueue {
 	}
 }
 
-func (q *MemoryQueue) Push(task model.Task) error {
-	q.ch <- task
-	return nil
+func (q *MemoryQueue) Push(ctx context.Context, task model.Task) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case q.ch <- task:
+		return nil
+	}
 }
 
-func (q *MemoryQueue) Pop() (model.Task, error) {
-	task, ok := <-q.ch
-	if !ok {
-		return model.Task{}, errors.New("queue closed")
+func (q *MemoryQueue) Pop(ctx context.Context) (model.Task, error) {
+	select {
+	case <-ctx.Done():
+		return model.Task{}, ctx.Err()
+	case task, ok := <-q.ch:
+		if !ok {
+			return model.Task{}, errors.New("queue closed")
+		}
+		return task, nil
 	}
-	return task, nil
 }

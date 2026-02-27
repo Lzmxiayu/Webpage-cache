@@ -3,8 +3,12 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	"os/signal"
+	"syscall"
 	"webpage-cache/internal/api"
 	"webpage-cache/internal/api/handler"
 	"webpage-cache/internal/browser"
@@ -25,13 +29,16 @@ func main() {
 		log.Fatal(err)
 	}
 
+	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	db, err := sql.Open("mysql", cfg.MySQLDSN)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
 
-	if err := db.Ping(); err != nil {
+	if err := db.PingContext(rootCtx); err != nil {
 		log.Fatal(err)
 	}
 
@@ -44,7 +51,7 @@ func main() {
 	})
 	defer redisClient.Close()
 
-	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+	if err := redisClient.Ping(rootCtx).Err(); err != nil {
 		log.Fatal(fmt.Errorf("redis ping failed: %w", err))
 	}
 
@@ -55,15 +62,34 @@ func main() {
 
 	localStorage := storage.NewLocalStorage(cfg.ScreenshotDir, cfg.ScreenshotBaseURL)
 
-	pool := worker.NewPool(cfg.WorkerCount, cfg.MaxRetryCount, q, repo, screenshotter, localStorage)
-	pool.Start()
+	pool := worker.NewPool(cfg.WorkerCount, cfg.MaxRetryCount, cfg.TaskExecTimeout, q, repo, screenshotter, localStorage)
+	pool.Start(rootCtx)
 
 	svc := service.NewScreenshotService(q, repo)
 	h := handler.NewScreenshotHandler(svc)
 	r := api.NewRouter(h)
 
-	log.Printf("Server started at %s\n", cfg.HTTPAddr)
-	if err := r.Run(cfg.HTTPAddr); err != nil {
-		log.Fatal(err)
+	srv := &http.Server{
+		Addr:    cfg.HTTPAddr,
+		Handler: r,
 	}
+
+	go func() {
+		log.Printf("Server started at %s\n", cfg.HTTPAddr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
+	}()
+
+	<-rootCtx.Done()
+	log.Println("Shutdown signal received, stopping server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("HTTP shutdown error: %v\n", err)
+	}
+
+	pool.Wait()
+	log.Println("Server shutdown completed")
 }

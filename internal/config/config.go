@@ -21,6 +21,8 @@ type Config struct {
 	ScreenshotDir     string
 	ScreenshotBaseURL string
 	ScreenshotTimeout time.Duration
+	TaskExecTimeout   time.Duration
+	ShutdownTimeout   time.Duration
 	HTTPAddr          string
 }
 
@@ -37,6 +39,8 @@ func Load() (Config, error) {
 		ScreenshotDir:     getStringEnv("SCREENSHOT_DIR", "./data/screenshots"),
 		ScreenshotBaseURL: getStringEnv("SCREENSHOT_BASE_URL", "/static/screenshots"),
 		ScreenshotTimeout: time.Duration(getIntEnv("SHOT_TIMEOUT_SEC", 30)) * time.Second,
+		TaskExecTimeout:   time.Duration(getIntEnv("TASK_TIMEOUT_SEC", 45)) * time.Second,
+		ShutdownTimeout:   time.Duration(getIntEnv("SHUTDOWN_TIMEOUT_SEC", 10)) * time.Second,
 		HTTPAddr:          getStringEnv("HTTP_ADDR", ":8080"),
 	}
 
@@ -51,6 +55,12 @@ func Load() (Config, error) {
 	}
 	if cfg.MaxRetryCount < 0 {
 		return Config{}, fmt.Errorf("MAX_RETRY_COUNT must be >= 0")
+	}
+	if cfg.TaskExecTimeout <= 0 {
+		return Config{}, fmt.Errorf("TASK_TIMEOUT_SEC must be > 0")
+	}
+	if cfg.ShutdownTimeout <= 0 {
+		return Config{}, fmt.Errorf("SHUTDOWN_TIMEOUT_SEC must be > 0")
 	}
 
 	mysqlCfg, err := mysqlDriver.ParseDSN(cfg.MySQLDSN)
