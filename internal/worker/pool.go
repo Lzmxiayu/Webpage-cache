@@ -3,11 +3,12 @@ package worker
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 	"webpage-cache/internal/browser"
 	"webpage-cache/internal/model"
+	"webpage-cache/internal/observability"
 	"webpage-cache/internal/queue"
 	"webpage-cache/internal/repository"
 	"webpage-cache/internal/storage"
@@ -21,6 +22,7 @@ type Pool struct {
 	repo            repository.TaskRepository
 	screenshotter   browser.Screenshotter
 	storage         storage.Storage
+	logger          *slog.Logger
 	wg              sync.WaitGroup
 }
 
@@ -32,6 +34,7 @@ func NewPool(
 	repo repository.TaskRepository,
 	screenshotter browser.Screenshotter,
 	storage storage.Storage,
+	logger *slog.Logger,
 ) *Pool {
 	return &Pool{
 		workerCount:     workerCount,
@@ -41,6 +44,7 @@ func NewPool(
 		repo:            repo,
 		screenshotter:   screenshotter,
 		storage:         storage,
+		logger:          logger,
 	}
 }
 
@@ -62,21 +66,22 @@ func (p *Pool) worker(ctx context.Context, id int) {
 		task, err := p.queue.Pop(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || ctx.Err() != nil {
-				log.Printf("[Worker %d] stopped\n", id)
+				p.logger.Info("worker_stopped", "worker_id", id)
 				return
 			}
-			log.Printf("[Worker %d] queue error: %v\n", id, err)
+			p.logger.Error("queue_pop_failed", "worker_id", id, "error", err)
 			continue
 		}
 
+		startedAt := time.Now()
 		task.Status = model.StatusProcessing
 		task.UpdatedAt = time.Now()
 		if err := p.repo.Update(task); err != nil {
-			log.Printf("[Worker %d] update processing status failed for %s: %v\n", id, task.ID, err)
+			p.logger.Error("task_update_processing_failed", "worker_id", id, "task_id", task.ID, "error", err)
 			continue
 		}
 
-		log.Printf("[Worker %d] processing %s (retry=%d)\n", id, task.ID, task.RetryCount)
+		p.logger.Info("task_processing_started", "worker_id", id, "task_id", task.ID, "retry_count", task.RetryCount)
 
 		taskCtx := ctx
 		cancel := func() {}
@@ -87,6 +92,7 @@ func (p *Pool) worker(ctx context.Context, id int) {
 		img, err := p.screenshotter.Capture(taskCtx, task.URL)
 		if err != nil {
 			cancel()
+			observability.ObserveTaskProcessed("failed", time.Since(startedAt))
 			p.handleFailure(ctx, id, &task, "capture screenshot failed: "+err.Error())
 			continue
 		}
@@ -94,6 +100,7 @@ func (p *Pool) worker(ctx context.Context, id int) {
 		resultURL, err := p.storage.Save(taskCtx, task.ID, img)
 		if err != nil {
 			cancel()
+			observability.ObserveTaskProcessed("failed", time.Since(startedAt))
 			p.handleFailure(ctx, id, &task, "save screenshot failed: "+err.Error())
 			continue
 		}
@@ -104,11 +111,12 @@ func (p *Pool) worker(ctx context.Context, id int) {
 		task.ErrorMsg = ""
 		task.UpdatedAt = time.Now()
 		if err := p.repo.Update(task); err != nil {
-			log.Printf("[Worker %d] update done status failed for %s: %v\n", id, task.ID, err)
+			p.logger.Error("task_update_done_failed", "worker_id", id, "task_id", task.ID, "error", err)
 			continue
 		}
 
-		log.Printf("[Worker %d] finished %s\n", id, task.ID)
+		observability.ObserveTaskProcessed("done", time.Since(startedAt))
+		p.logger.Info("task_processing_done", "worker_id", id, "task_id", task.ID, "duration_ms", time.Since(startedAt).Milliseconds())
 	}
 }
 
@@ -120,16 +128,24 @@ func (p *Pool) handleFailure(ctx context.Context, workerID int, task *model.Task
 		task.UpdatedAt = time.Now()
 
 		if err := p.repo.Update(*task); err != nil {
-			log.Printf("[Worker %d] update retry status failed for %s: %v\n", workerID, task.ID, err)
+			p.logger.Error("task_update_retry_failed", "worker_id", workerID, "task_id", task.ID, "error", err)
 			return
 		}
 		if err := p.queue.Push(ctx, *task); err != nil {
-			log.Printf("[Worker %d] requeue failed for %s: %v\n", workerID, task.ID, err)
+			p.logger.Error("task_requeue_failed", "worker_id", workerID, "task_id", task.ID, "error", err)
 			p.markFailed(workerID, task, "requeue failed: "+err.Error())
 			return
 		}
 
-		log.Printf("[Worker %d] task %s retry scheduled (%d/%d): %s\n", workerID, task.ID, task.RetryCount, p.maxRetryCount, errMsg)
+		observability.IncTaskRetry()
+		p.logger.Warn(
+			"task_retry_scheduled",
+			"worker_id", workerID,
+			"task_id", task.ID,
+			"retry_count", task.RetryCount,
+			"max_retry_count", p.maxRetryCount,
+			"reason", errMsg,
+		)
 		return
 	}
 
@@ -141,9 +157,15 @@ func (p *Pool) markFailed(workerID int, task *model.Task, errMsg string) {
 	task.ErrorMsg = errMsg
 	task.UpdatedAt = time.Now()
 	if err := p.repo.Update(*task); err != nil {
-		log.Printf("[Worker %d] update failed status failed for %s: %v\n", workerID, task.ID, err)
+		p.logger.Error("task_update_failed_status_failed", "worker_id", workerID, "task_id", task.ID, "error", err)
 		return
 	}
 
-	log.Printf("[Worker %d] task %s failed permanently after %d retries: %s\n", workerID, task.ID, task.RetryCount, errMsg)
+	p.logger.Error(
+		"task_failed_permanently",
+		"worker_id", workerID,
+		"task_id", task.ID,
+		"retry_count", task.RetryCount,
+		"reason", errMsg,
+	)
 }

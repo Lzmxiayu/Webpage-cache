@@ -7,6 +7,7 @@ import (
 	"time"
 	"webpage-cache/internal/api/response"
 	"webpage-cache/internal/model"
+	"webpage-cache/internal/observability"
 	"webpage-cache/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -44,22 +45,23 @@ type TaskData struct {
 func (h *ScreenshotHandler) CreateTask(c *gin.Context) {
 	var req CreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, response.Error(response.CodeInvalidRequest, "invalid request body"))
+		writeJSON(c, http.StatusBadRequest, response.Error(response.CodeInvalidRequest, "invalid request body"))
 		return
 	}
 
 	if !isValidHTTPURL(req.URL) {
-		c.JSON(http.StatusBadRequest, response.Error(response.CodeInvalidURL, "url must be a valid http/https URL"))
+		writeJSON(c, http.StatusBadRequest, response.Error(response.CodeInvalidURL, "url must be a valid http/https URL"))
 		return
 	}
 
 	task, err := h.service.CreateTask(c.Request.Context(), req.URL)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(response.CodeInternalError, "failed to create task"))
+		writeJSON(c, http.StatusInternalServerError, response.Error(response.CodeInternalError, "failed to create task"))
 		return
 	}
 
-	c.JSON(http.StatusAccepted, response.Success(response.CodeAccepted, "task accepted", CreateTaskData{
+	observability.IncTaskCreated()
+	writeJSON(c, http.StatusAccepted, response.Success(response.CodeAccepted, "task accepted", CreateTaskData{
 		TaskID: task.ID,
 		Status: task.Status,
 	}))
@@ -68,17 +70,17 @@ func (h *ScreenshotHandler) CreateTask(c *gin.Context) {
 func (h *ScreenshotHandler) GetTask(c *gin.Context) {
 	id := strings.TrimSpace(c.Param("id"))
 	if _, err := uuid.Parse(id); err != nil {
-		c.JSON(http.StatusBadRequest, response.Error(response.CodeInvalidTaskID, "task id must be a valid UUID"))
+		writeJSON(c, http.StatusBadRequest, response.Error(response.CodeInvalidTaskID, "task id must be a valid UUID"))
 		return
 	}
 
 	task, ok := h.service.GetTask(id)
 	if !ok {
-		c.JSON(http.StatusNotFound, response.Error(response.CodeTaskNotFound, "task not found"))
+		writeJSON(c, http.StatusNotFound, response.Error(response.CodeTaskNotFound, "task not found"))
 		return
 	}
 
-	c.JSON(http.StatusOK, response.Success(response.CodeOK, "ok", toTaskData(task)))
+	writeJSON(c, http.StatusOK, response.Success(response.CodeOK, "ok", toTaskData(task)))
 }
 
 func toTaskData(task model.Task) TaskData {
@@ -103,4 +105,9 @@ func isValidHTTPURL(raw string) bool {
 		return false
 	}
 	return u.Host != ""
+}
+
+func writeJSON(c *gin.Context, status int, resp response.APIResponse) {
+	requestID := observability.RequestIDFromGin(c)
+	c.JSON(status, response.WithRequestID(resp, requestID))
 }

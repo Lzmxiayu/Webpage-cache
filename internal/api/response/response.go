@@ -1,9 +1,10 @@
 package response
 
 type APIResponse struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Data    any    `json:"data,omitempty"`
+	RequestID string `json:"request_id,omitempty"`
+	Code      string `json:"code"`
+	Message   string `json:"message"`
+	Data      any    `json:"data,omitempty"`
 }
 
 const (
@@ -29,4 +30,9 @@ func Error(code, message string) APIResponse {
 		Code:    code,
 		Message: message,
 	}
+}
+
+func WithRequestID(resp APIResponse, requestID string) APIResponse {
+	resp.RequestID = requestID
+	return resp
 }

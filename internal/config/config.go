@@ -24,6 +24,7 @@ type Config struct {
 	TaskExecTimeout   time.Duration
 	ShutdownTimeout   time.Duration
 	HTTPAddr          string
+	LogLevel          string
 }
 
 func Load() (Config, error) {
@@ -42,6 +43,7 @@ func Load() (Config, error) {
 		TaskExecTimeout:   time.Duration(getIntEnv("TASK_TIMEOUT_SEC", 45)) * time.Second,
 		ShutdownTimeout:   time.Duration(getIntEnv("SHUTDOWN_TIMEOUT_SEC", 10)) * time.Second,
 		HTTPAddr:          getStringEnv("HTTP_ADDR", ":8080"),
+		LogLevel:          getStringEnv("LOG_LEVEL", "info"),
 	}
 
 	if cfg.MySQLDSN == "" {

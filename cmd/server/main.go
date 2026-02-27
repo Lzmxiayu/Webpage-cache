@@ -13,6 +13,7 @@ import (
 	"webpage-cache/internal/api/handler"
 	"webpage-cache/internal/browser"
 	"webpage-cache/internal/config"
+	"webpage-cache/internal/observability"
 	"webpage-cache/internal/queue"
 	"webpage-cache/internal/repository"
 	"webpage-cache/internal/service"
@@ -28,6 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	logger := observability.NewLogger(cfg.LogLevel)
 
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -62,12 +64,12 @@ func main() {
 
 	localStorage := storage.NewLocalStorage(cfg.ScreenshotDir, cfg.ScreenshotBaseURL)
 
-	pool := worker.NewPool(cfg.WorkerCount, cfg.MaxRetryCount, cfg.TaskExecTimeout, q, repo, screenshotter, localStorage)
+	pool := worker.NewPool(cfg.WorkerCount, cfg.MaxRetryCount, cfg.TaskExecTimeout, q, repo, screenshotter, localStorage, logger)
 	pool.Start(rootCtx)
 
 	svc := service.NewScreenshotService(q, repo)
 	h := handler.NewScreenshotHandler(svc)
-	r := api.NewRouter(h)
+	r := api.NewRouter(logger, h)
 
 	srv := &http.Server{
 		Addr:    cfg.HTTPAddr,
@@ -75,21 +77,21 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("Server started at %s\n", cfg.HTTPAddr)
+		logger.Info("server_started", "addr", cfg.HTTPAddr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)
 		}
 	}()
 
 	<-rootCtx.Done()
-	log.Println("Shutdown signal received, stopping server...")
+	logger.Info("shutdown_signal_received")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Printf("HTTP shutdown error: %v\n", err)
+		logger.Error("http_shutdown_failed", "error", err)
 	}
 
 	pool.Wait()
-	log.Println("Server shutdown completed")
+	logger.Info("server_shutdown_completed")
 }

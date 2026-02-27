@@ -7,11 +7,13 @@ require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/google/uuid v1.6.0
+	github.com/prometheus/client_golang v1.19.1
 	github.com/redis/go-redis/v9 v9.18.0
 )
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -35,9 +37,12 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
+	github.com/prometheus/client_model v0.5.0 // indirect
+	github.com/prometheus/common v0.48.0 // indirect
+	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/quic-go/qpack v0.5.1 // indirect
 	github.com/quic-go/quic-go v0.54.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
