@@ -15,6 +15,7 @@ type Config struct {
 	RedisPassword     string
 	RedisDB           int
 	RedisQueueKey     string
+	MaxRetryCount     int
 	WorkerCount       int
 	QueueSize         int
 	ScreenshotDir     string
@@ -30,6 +31,7 @@ func Load() (Config, error) {
 		RedisPassword:     os.Getenv("REDIS_PASSWORD"),
 		RedisDB:           getIntEnv("REDIS_DB", 0),
 		RedisQueueKey:     getStringEnv("REDIS_QUEUE_KEY", "screenshot:tasks"),
+		MaxRetryCount:     getIntEnv("MAX_RETRY_COUNT", 2),
 		WorkerCount:       getIntEnv("WORKER_COUNT", 5),
 		QueueSize:         getIntEnv("QUEUE_SIZE", 100),
 		ScreenshotDir:     getStringEnv("SCREENSHOT_DIR", "./data/screenshots"),
@@ -46,6 +48,9 @@ func Load() (Config, error) {
 	}
 	if cfg.RedisQueueKey == "" {
 		return Config{}, fmt.Errorf("REDIS_QUEUE_KEY is required")
+	}
+	if cfg.MaxRetryCount < 0 {
+		return Config{}, fmt.Errorf("MAX_RETRY_COUNT must be >= 0")
 	}
 
 	mysqlCfg, err := mysqlDriver.ParseDSN(cfg.MySQLDSN)

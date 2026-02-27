@@ -55,7 +55,7 @@ func main() {
 
 	localStorage := storage.NewLocalStorage(cfg.ScreenshotDir, cfg.ScreenshotBaseURL)
 
-	pool := worker.NewPool(cfg.WorkerCount, q, repo, screenshotter, localStorage)
+	pool := worker.NewPool(cfg.WorkerCount, cfg.MaxRetryCount, q, repo, screenshotter, localStorage)
 	pool.Start()
 
 	svc := service.NewScreenshotService(q, repo)

@@ -12,11 +12,12 @@ const (
 )
 
 type Task struct {
-	ID        string
-	URL       string
-	Status    TaskStatus
-	ResultURL string
-	ErrorMsg  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         string
+	URL        string
+	Status     TaskStatus
+	ResultURL  string
+	ErrorMsg   string
+	RetryCount int
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
