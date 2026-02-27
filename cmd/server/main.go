@@ -43,6 +43,9 @@ func main() {
 	if err := db.PingContext(rootCtx); err != nil {
 		log.Fatal(err)
 	}
+	if err := repository.RunMigrations(db); err != nil {
+		log.Fatal(err)
+	}
 
 	repo := repository.NewMySQLTaskRepository(db)
 
