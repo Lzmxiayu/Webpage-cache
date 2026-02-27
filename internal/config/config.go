@@ -11,6 +11,10 @@ import (
 
 type Config struct {
 	MySQLDSN          string
+	RedisAddr         string
+	RedisPassword     string
+	RedisDB           int
+	RedisQueueKey     string
 	WorkerCount       int
 	QueueSize         int
 	ScreenshotDir     string
@@ -22,6 +26,10 @@ type Config struct {
 func Load() (Config, error) {
 	cfg := Config{
 		MySQLDSN:          os.Getenv("MYSQL_DSN"),
+		RedisAddr:         getStringEnv("REDIS_ADDR", "127.0.0.1:6379"),
+		RedisPassword:     os.Getenv("REDIS_PASSWORD"),
+		RedisDB:           getIntEnv("REDIS_DB", 0),
+		RedisQueueKey:     getStringEnv("REDIS_QUEUE_KEY", "screenshot:tasks"),
 		WorkerCount:       getIntEnv("WORKER_COUNT", 5),
 		QueueSize:         getIntEnv("QUEUE_SIZE", 100),
 		ScreenshotDir:     getStringEnv("SCREENSHOT_DIR", "./data/screenshots"),
@@ -32,6 +40,12 @@ func Load() (Config, error) {
 
 	if cfg.MySQLDSN == "" {
 		return Config{}, fmt.Errorf("MYSQL_DSN is required")
+	}
+	if cfg.RedisAddr == "" {
+		return Config{}, fmt.Errorf("REDIS_ADDR is required")
+	}
+	if cfg.RedisQueueKey == "" {
+		return Config{}, fmt.Errorf("REDIS_QUEUE_KEY is required")
 	}
 
 	mysqlCfg, err := mysqlDriver.ParseDSN(cfg.MySQLDSN)

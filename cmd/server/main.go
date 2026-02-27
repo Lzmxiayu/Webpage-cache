@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"webpage-cache/internal/api"
 	"webpage-cache/internal/api/handler"
@@ -14,6 +16,7 @@ import (
 	"webpage-cache/internal/worker"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -33,7 +36,19 @@ func main() {
 	}
 
 	repo := repository.NewMySQLTaskRepository(db)
-	q := queue.NewMemoryQueue(cfg.QueueSize)
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
+	})
+	defer redisClient.Close()
+
+	if err := redisClient.Ping(context.Background()).Err(); err != nil {
+		log.Fatal(fmt.Errorf("redis ping failed: %w", err))
+	}
+
+	q := queue.NewRedisQueue(redisClient, cfg.RedisQueueKey)
 
 	screenshotter := browser.NewChromedpScreenshotter(cfg.ScreenshotTimeout)
 	defer screenshotter.Close()
@@ -52,4 +67,3 @@ func main() {
 		log.Fatal(err)
 	}
 }
-
