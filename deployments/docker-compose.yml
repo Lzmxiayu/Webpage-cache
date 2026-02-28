@@ -57,6 +57,7 @@ services:
       PROXY_URLS: ""
       MAX_RETRY_COUNT: "2"
       SHOT_TIMEOUT_SEC: "30"
+      PAGE_RENDER_WAIT_MS: "2000"
       TASK_TIMEOUT_SEC: "45"
       SHUTDOWN_TIMEOUT_SEC: "10"
       SCREENSHOT_DIR: /app/data/screenshots

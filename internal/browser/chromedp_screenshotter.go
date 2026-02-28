@@ -12,10 +12,11 @@ type ChromedpScreenshotter struct {
 	browserCtx context.Context
 	cancel     context.CancelFunc
 	timeout    time.Duration
+	renderWait time.Duration
 	proxyURL   string
 }
 
-func NewChromedpScreenshotter(timeout time.Duration, proxyURL string) *ChromedpScreenshotter {
+func NewChromedpScreenshotter(timeout, renderWait time.Duration, proxyURL string) *ChromedpScreenshotter {
 	allocOpts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
@@ -35,8 +36,9 @@ func NewChromedpScreenshotter(timeout time.Duration, proxyURL string) *ChromedpS
 			browserCancel()
 			allocCancel()
 		},
-		timeout:  timeout,
-		proxyURL: strings.TrimSpace(proxyURL),
+		timeout:    timeout,
+		renderWait: renderWait,
+		proxyURL:   strings.TrimSpace(proxyURL),
 	}
 }
 
@@ -67,6 +69,18 @@ func (s *ChromedpScreenshotter) Capture(ctx context.Context, url string) ([]byte
 	err := chromedp.Run(tabCtx,
 		chromedp.Navigate(url),
 		chromedp.WaitReady("body", chromedp.ByQuery),
+		chromedp.Poll(`document.readyState === "complete"`, nil, chromedp.WithPollingInterval(100*time.Millisecond)),
+		chromedp.ActionFunc(func(ctx context.Context) error {
+			if s.renderWait <= 0 {
+				return nil
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(s.renderWait):
+				return nil
+			}
+		}),
 		chromedp.FullScreenshot(&png, 90),
 	)
 	if err != nil {

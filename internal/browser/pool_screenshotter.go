@@ -20,7 +20,11 @@ type PooledScreenshotter struct {
 	once      sync.Once
 }
 
-func NewPooledChromedpScreenshotter(poolSize, maxTabsPerBrowser int, timeout time.Duration, proxies []string) (*PooledScreenshotter, error) {
+func NewPooledChromedpScreenshotter(
+	poolSize, maxTabsPerBrowser int,
+	timeout, renderWait time.Duration,
+	proxies []string,
+) (*PooledScreenshotter, error) {
 	if poolSize <= 0 {
 		return nil, fmt.Errorf("pool size must be > 0")
 	}
@@ -33,7 +37,7 @@ func NewPooledChromedpScreenshotter(poolSize, maxTabsPerBrowser int, timeout tim
 	proxyList := normalizedProxies(proxies)
 	for i := 0; i < poolSize; i++ {
 		proxy := pickProxy(proxyList, i)
-		inst := NewChromedpScreenshotter(timeout, proxy)
+		inst := NewChromedpScreenshotter(timeout, renderWait, proxy)
 		instances = append(instances, inst)
 		for t := 0; t < maxTabsPerBrowser; t++ {
 			ch <- inst

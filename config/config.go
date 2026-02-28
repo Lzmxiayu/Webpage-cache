@@ -25,6 +25,7 @@ type Config struct {
 	ScreenshotDir     string
 	ScreenshotBaseURL string
 	ScreenshotTimeout time.Duration
+	PageRenderWait    time.Duration
 	TaskExecTimeout   time.Duration
 	ShutdownTimeout   time.Duration
 	HTTPAddr          string
@@ -47,6 +48,7 @@ func Load() (Config, error) {
 		ScreenshotDir:     getStringEnv("SCREENSHOT_DIR", "./data/screenshots"),
 		ScreenshotBaseURL: getStringEnv("SCREENSHOT_BASE_URL", "/static/screenshots"),
 		ScreenshotTimeout: time.Duration(getIntEnv("SHOT_TIMEOUT_SEC", 30)) * time.Second,
+		PageRenderWait:    time.Duration(getIntEnv("PAGE_RENDER_WAIT_MS", 2000)) * time.Millisecond,
 		TaskExecTimeout:   time.Duration(getIntEnv("TASK_TIMEOUT_SEC", 45)) * time.Second,
 		ShutdownTimeout:   time.Duration(getIntEnv("SHUTDOWN_TIMEOUT_SEC", 10)) * time.Second,
 		HTTPAddr:          getStringEnv("HTTP_ADDR", ":8080"),
@@ -73,6 +75,9 @@ func Load() (Config, error) {
 	}
 	if cfg.TaskExecTimeout <= 0 {
 		return Config{}, fmt.Errorf("TASK_TIMEOUT_SEC must be > 0")
+	}
+	if cfg.PageRenderWait < 0 {
+		return Config{}, fmt.Errorf("PAGE_RENDER_WAIT_MS must be >= 0")
 	}
 	if cfg.ShutdownTimeout <= 0 {
 		return Config{}, fmt.Errorf("SHUTDOWN_TIMEOUT_SEC must be > 0")
