@@ -2,7 +2,7 @@ package response
 
 type APIResponse struct {
 	RequestID string `json:"request_id,omitempty"`
-	Code      string `json:"code"`
+	BizCode   string `json:"biz_code"`
 	Message   string `json:"message"`
 	Data      any    `json:"data,omitempty"`
 }
@@ -19,7 +19,7 @@ const (
 
 func Success(code, message string, data any) APIResponse {
 	return APIResponse{
-		Code:    code,
+		BizCode: code,
 		Message: message,
 		Data:    data,
 	}
@@ -27,7 +27,7 @@ func Success(code, message string, data any) APIResponse {
 
 func Error(code, message string) APIResponse {
 	return APIResponse{
-		Code:    code,
+		BizCode: code,
 		Message: message,
 	}
 }

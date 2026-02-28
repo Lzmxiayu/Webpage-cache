@@ -31,8 +31,8 @@ func TestCreateTaskInvalidBody(t *testing.T) {
 	}
 
 	resp := decodeAPIResponse(t, w.Body.Bytes())
-	if resp.Code != response.CodeInvalidRequest {
-		t.Fatalf("expected code %s, got %s", response.CodeInvalidRequest, resp.Code)
+	if resp.BizCode != response.CodeInvalidRequest {
+		t.Fatalf("expected biz_code %s, got %s", response.CodeInvalidRequest, resp.BizCode)
 	}
 }
 
@@ -51,8 +51,8 @@ func TestCreateTaskInvalidURL(t *testing.T) {
 	}
 
 	resp := decodeAPIResponse(t, w.Body.Bytes())
-	if resp.Code != response.CodeInvalidURL {
-		t.Fatalf("expected code %s, got %s", response.CodeInvalidURL, resp.Code)
+	if resp.BizCode != response.CodeInvalidURL {
+		t.Fatalf("expected biz_code %s, got %s", response.CodeInvalidURL, resp.BizCode)
 	}
 }
 
@@ -71,8 +71,8 @@ func TestCreateTaskAccepted(t *testing.T) {
 	}
 
 	resp := decodeAPIResponse(t, w.Body.Bytes())
-	if resp.Code != response.CodeAccepted {
-		t.Fatalf("expected code %s, got %s", response.CodeAccepted, resp.Code)
+	if resp.BizCode != response.CodeAccepted {
+		t.Fatalf("expected biz_code %s, got %s", response.CodeAccepted, resp.BizCode)
 	}
 
 	data, ok := resp.Data.(map[string]any)
@@ -101,8 +101,8 @@ func TestGetTaskInvalidID(t *testing.T) {
 	}
 
 	resp := decodeAPIResponse(t, w.Body.Bytes())
-	if resp.Code != response.CodeInvalidTaskID {
-		t.Fatalf("expected code %s, got %s", response.CodeInvalidTaskID, resp.Code)
+	if resp.BizCode != response.CodeInvalidTaskID {
+		t.Fatalf("expected biz_code %s, got %s", response.CodeInvalidTaskID, resp.BizCode)
 	}
 }
 
@@ -120,8 +120,8 @@ func TestGetTaskNotFound(t *testing.T) {
 	}
 
 	resp := decodeAPIResponse(t, w.Body.Bytes())
-	if resp.Code != response.CodeTaskNotFound {
-		t.Fatalf("expected code %s, got %s", response.CodeTaskNotFound, resp.Code)
+	if resp.BizCode != response.CodeTaskNotFound {
+		t.Fatalf("expected biz_code %s, got %s", response.CodeTaskNotFound, resp.BizCode)
 	}
 }
 
@@ -147,8 +147,8 @@ func TestGetTaskOK(t *testing.T) {
 	}
 
 	resp := decodeAPIResponse(t, w.Body.Bytes())
-	if resp.Code != response.CodeOK {
-		t.Fatalf("expected code %s, got %s", response.CodeOK, resp.Code)
+	if resp.BizCode != response.CodeOK {
+		t.Fatalf("expected biz_code %s, got %s", response.CodeOK, resp.BizCode)
 	}
 	data, ok := resp.Data.(map[string]any)
 	if !ok {
