@@ -17,6 +17,7 @@ type Config struct {
 	RedisQueueKey     string
 	MaxRetryCount     int
 	WorkerCount       int
+	BrowserPoolSize   int
 	QueueSize         int
 	ScreenshotDir     string
 	ScreenshotBaseURL string
@@ -36,6 +37,7 @@ func Load() (Config, error) {
 		RedisQueueKey:     getStringEnv("REDIS_QUEUE_KEY", "screenshot:tasks"),
 		MaxRetryCount:     getIntEnv("MAX_RETRY_COUNT", 2),
 		WorkerCount:       getIntEnv("WORKER_COUNT", 5),
+		BrowserPoolSize:   getIntEnv("BROWSER_POOL_SIZE", 2),
 		QueueSize:         getIntEnv("QUEUE_SIZE", 100),
 		ScreenshotDir:     getStringEnv("SCREENSHOT_DIR", "./data/screenshots"),
 		ScreenshotBaseURL: getStringEnv("SCREENSHOT_BASE_URL", "/static/screenshots"),
@@ -57,6 +59,9 @@ func Load() (Config, error) {
 	}
 	if cfg.MaxRetryCount < 0 {
 		return Config{}, fmt.Errorf("MAX_RETRY_COUNT must be >= 0")
+	}
+	if cfg.BrowserPoolSize <= 0 {
+		return Config{}, fmt.Errorf("BROWSER_POOL_SIZE must be > 0")
 	}
 	if cfg.TaskExecTimeout <= 0 {
 		return Config{}, fmt.Errorf("TASK_TIMEOUT_SEC must be > 0")

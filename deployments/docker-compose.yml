@@ -52,6 +52,7 @@ services:
       REDIS_DB: "0"
       REDIS_QUEUE_KEY: screenshot:tasks
       WORKER_COUNT: "5"
+      BROWSER_POOL_SIZE: "2"
       MAX_RETRY_COUNT: "2"
       SHOT_TIMEOUT_SEC: "30"
       TASK_TIMEOUT_SEC: "45"
@@ -69,4 +70,3 @@ volumes:
   mysql_data:
   redis_data:
   screenshots_data:
-
