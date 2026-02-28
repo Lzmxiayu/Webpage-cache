@@ -2,6 +2,7 @@ package browser
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -11,15 +12,19 @@ type ChromedpScreenshotter struct {
 	browserCtx context.Context
 	cancel     context.CancelFunc
 	timeout    time.Duration
+	proxyURL   string
 }
 
-func NewChromedpScreenshotter(timeout time.Duration) *ChromedpScreenshotter {
+func NewChromedpScreenshotter(timeout time.Duration, proxyURL string) *ChromedpScreenshotter {
 	allocOpts := append(chromedp.DefaultExecAllocatorOptions[:],
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
 		chromedp.Flag("headless", true),
 		chromedp.Flag("disable-gpu", true),
 	)
+	if strings.TrimSpace(proxyURL) != "" {
+		allocOpts = append(allocOpts, chromedp.ProxyServer(strings.TrimSpace(proxyURL)))
+	}
 
 	allocCtx, allocCancel := chromedp.NewExecAllocator(context.Background(), allocOpts...)
 	browserCtx, browserCancel := chromedp.NewContext(allocCtx)
@@ -30,11 +35,12 @@ func NewChromedpScreenshotter(timeout time.Duration) *ChromedpScreenshotter {
 			browserCancel()
 			allocCancel()
 		},
-		timeout: timeout,
+		timeout:  timeout,
+		proxyURL: strings.TrimSpace(proxyURL),
 	}
 }
 
-func (s *ChromedpScreenshotter) Capture(ctx context.Context, url string) ([]byte, error) {
+func (s *ChromedpScreenshotter) Capture(ctx context.Context, url string) ([]byte, string, error) {
 	tabCtx, tabCancel := chromedp.NewContext(s.browserCtx)
 	defer tabCancel()
 
@@ -64,14 +70,18 @@ func (s *ChromedpScreenshotter) Capture(ctx context.Context, url string) ([]byte
 		chromedp.FullScreenshot(&png, 90),
 	)
 	if err != nil {
-		return nil, err
+		return nil, s.proxyURL, err
 	}
 
-	return png, nil
+	return png, s.proxyURL, nil
 }
 
 func (s *ChromedpScreenshotter) Close() {
 	if s.cancel != nil {
 		s.cancel()
 	}
+}
+
+func (s *ChromedpScreenshotter) Proxy() string {
+	return s.proxyURL
 }

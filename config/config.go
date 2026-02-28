@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	mysqlDriver "github.com/go-sql-driver/mysql"
@@ -20,6 +21,7 @@ type Config struct {
 	BrowserPoolSize   int
 	MaxTabsPerBrowser int
 	QueueSize         int
+	ProxyURLs         []string
 	ScreenshotDir     string
 	ScreenshotBaseURL string
 	ScreenshotTimeout time.Duration
@@ -41,6 +43,7 @@ func Load() (Config, error) {
 		BrowserPoolSize:   getIntEnv("BROWSER_POOL_SIZE", 2),
 		MaxTabsPerBrowser: getIntEnv("MAX_TABS_PER_BROWSER", 1),
 		QueueSize:         getIntEnv("QUEUE_SIZE", 100),
+		ProxyURLs:         splitCSVEnv("PROXY_URLS"),
 		ScreenshotDir:     getStringEnv("SCREENSHOT_DIR", "./data/screenshots"),
 		ScreenshotBaseURL: getStringEnv("SCREENSHOT_BASE_URL", "/static/screenshots"),
 		ScreenshotTimeout: time.Duration(getIntEnv("SHOT_TIMEOUT_SEC", 30)) * time.Second,
@@ -105,4 +108,22 @@ func getStringEnv(key, fallback string) string {
 		return fallback
 	}
 	return v
+}
+
+func splitCSVEnv(key string) []string {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return nil
+	}
+
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }

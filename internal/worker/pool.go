@@ -88,8 +88,14 @@ func (p *Pool) worker(ctx context.Context, id int) {
 		if p.taskExecTimeout > 0 {
 			taskCtx, cancel = context.WithTimeout(ctx, p.taskExecTimeout)
 		}
+		if task.LastProxy != "" {
+			taskCtx = browser.WithAvoidProxy(taskCtx, task.LastProxy)
+		}
 
-		img, err := p.screenshotter.Capture(taskCtx, task.URL)
+		img, usedProxy, err := p.screenshotter.Capture(taskCtx, task.URL)
+		if usedProxy != "" {
+			task.LastProxy = usedProxy
+		}
 		if err != nil {
 			cancel()
 			observability.ObserveTaskProcessed("failed", time.Since(startedAt))

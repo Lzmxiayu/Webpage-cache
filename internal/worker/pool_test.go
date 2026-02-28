@@ -16,12 +16,12 @@ type fakeScreenshotter struct {
 	calls     int
 }
 
-func (f *fakeScreenshotter) Capture(_ context.Context, _ string) ([]byte, error) {
+func (f *fakeScreenshotter) Capture(_ context.Context, _ string) ([]byte, string, error) {
 	f.calls++
 	if f.calls <= f.failCount {
-		return nil, errors.New("screenshot failed")
+		return nil, "http://proxy-a:8080", errors.New("screenshot failed")
 	}
-	return []byte("png"), nil
+	return []byte("png"), "http://proxy-b:8080", nil
 }
 
 func (f *fakeScreenshotter) Close() {}

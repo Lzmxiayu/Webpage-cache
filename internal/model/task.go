@@ -18,6 +18,7 @@ type Task struct {
 	ResultURL  string
 	ErrorMsg   string
 	RetryCount int
+	LastProxy  string
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }

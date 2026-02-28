@@ -62,7 +62,7 @@ func main() {
 
 	q := queue.NewRedisQueue(redisClient, cfg.RedisQueueKey)
 
-	screenshotter, err := browser.NewPooledChromedpScreenshotter(cfg.BrowserPoolSize, cfg.MaxTabsPerBrowser, cfg.ScreenshotTimeout)
+	screenshotter, err := browser.NewPooledChromedpScreenshotter(cfg.BrowserPoolSize, cfg.MaxTabsPerBrowser, cfg.ScreenshotTimeout, cfg.ProxyURLs)
 	if err != nil {
 		log.Fatal(err)
 	}
