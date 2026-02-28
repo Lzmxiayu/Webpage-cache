@@ -53,6 +53,7 @@ services:
       REDIS_QUEUE_KEY: screenshot:tasks
       WORKER_COUNT: "5"
       BROWSER_POOL_SIZE: "2"
+      MAX_TABS_PER_BROWSER: "3"
       MAX_RETRY_COUNT: "2"
       SHOT_TIMEOUT_SEC: "30"
       TASK_TIMEOUT_SEC: "45"
